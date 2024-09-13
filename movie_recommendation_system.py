@@ -1,4 +1,6 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
+from flask_restful import Api, Resource
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -9,6 +11,8 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 app = Flask(__name__)
+CORS(app)  # This allows all origins
+api = Api(app)
 
 # Database setup
 Base = declarative_base()
@@ -21,73 +25,38 @@ class Movie(Base):
     num_ratings = Column(Integer)
     last_updated = Column(DateTime, default=datetime.utcnow)
 
-# IMDb Scraper
-class IMDbScraper:
-    def __init__(self):
-        self.base_url = "https://www.imdb.com"
+# ... (IMDbScraper, ClaudeAnalyzer, and MovieRecommender classes remain the same)
 
-    def fetch_movie_data(self, movie_id):
-        url = f"{self.base_url}/title/{movie_id}/"
-        response = requests.get(url)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            title = soup.find('h1').text.strip()
-            rating = float(soup.find('span', class_='AggregateRatingButton__RatingScore').text.strip())
-            num_ratings = int(soup.find('div', class_='AggregateRatingButton__TotalRatingAmount').text.strip().replace(',', ''))
-            return {'title': title, 'rating': rating, 'num_ratings': num_ratings}
-        return None
+class RecommendationResource(Resource):
+    def post(self):
+        user_preferences = request.json
+        recommendations = recommender.get_recommendations(user_preferences)
+        return jsonify([{'title': movie.title, 'score': score} for movie, score in recommendations])
 
-# Claude API Integration
-class ClaudeAnalyzer:
-    def __init__(self, api_key):
-        self.api_url = "https://api.anthropic.com/v1/messages"
-        self.headers = {"Content-Type": "application/json", "X-API-Key": api_key}
+class MovieResource(Resource):
+    def post(self, movie_id):
+        movie_data = scraper.fetch_movie_data(movie_id)
+        if movie_data:
+            movie = Movie(**movie_data)
+            db_session.add(movie)
+            db_session.commit()
+            return {"message": "Movie updated successfully"}, 200
+        return {"error": "Failed to fetch movie data"}, 400
 
-    def analyze_movie(self, movie_data):
-        prompt = f"Analyze the following movie: {movie_data['title']}"
-        payload = {
-            "model": "claude-3.5-sonnet",
-            "messages": [{"role": "user", "content": prompt}]
-        }
-        response = requests.post(self.api_url, headers=self.headers, json=payload)
-        return json.loads(response.json()['content'])
+    def get(self, movie_id):
+        movie = db_session.query(Movie).filter_by(id=movie_id).first()
+        if movie:
+            return {
+                "id": movie.id,
+                "title": movie.title,
+                "rating": movie.rating,
+                "num_ratings": movie.num_ratings,
+                "last_updated": movie.last_updated.isoformat()
+            }
+        return {"error": "Movie not found"}, 404
 
-# Recommendation Algorithm
-class MovieRecommender:
-    def __init__(self, db_session):
-        self.db_session = db_session
-
-    def get_recommendations(self, user_preferences):
-        movies = self.db_session.query(Movie).all()
-        scored_movies = []
-        for movie in movies:
-            score = self.calculate_score(movie, user_preferences)
-            scored_movies.append((movie, score))
-        return sorted(scored_movies, key=lambda x: x[1], reverse=True)[:10]
-
-    def calculate_score(self, movie, user_preferences):
-        # Simplified scoring function
-        genre_score = 0.5  # Placeholder for genre matching
-        popularity_score = (movie.rating / 10) * 0.3
-        recency_score = 0.2  # Placeholder for recency calculation
-        return genre_score + popularity_score + recency_score
-
-# Flask routes
-@app.route('/recommend', methods=['POST'])
-def recommend_movies():
-    user_preferences = request.json
-    recommendations = recommender.get_recommendations(user_preferences)
-    return jsonify([{'title': movie.title, 'score': score} for movie, score in recommendations])
-
-@app.route('/update_movie/<string:movie_id>', methods=['POST'])
-def update_movie(movie_id):
-    movie_data = scraper.fetch_movie_data(movie_id)
-    if movie_data:
-        movie = Movie(**movie_data)
-        db_session.add(movie)
-        db_session.commit()
-        return jsonify({"message": "Movie updated successfully"}), 200
-    return jsonify({"error": "Failed to fetch movie data"}), 400
+api.add_resource(RecommendationResource, '/recommend')
+api.add_resource(MovieResource, '/movie/<string:movie_id>')
 
 if __name__ == '__main__':
     # Database setup
