@@ -1,3 +1,4 @@
+from flask import Flask, request, jsonify
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -5,6 +6,20 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import os
+
+app = Flask(__name__)
+
+# Database setup
+Base = declarative_base()
+
+class Movie(Base):
+    __tablename__ = 'movies'
+    id = Column(Integer, primary_key=True)
+    title = Column(String)
+    rating = Column(Float)
+    num_ratings = Column(Integer)
+    last_updated = Column(DateTime, default=datetime.utcnow)
 
 # IMDb Scraper
 class IMDbScraper:
@@ -37,17 +52,6 @@ class ClaudeAnalyzer:
         response = requests.post(self.api_url, headers=self.headers, json=payload)
         return json.loads(response.json()['content'])
 
-# Database Model
-Base = declarative_base()
-
-class Movie(Base):
-    __tablename__ = 'movies'
-    id = Column(Integer, primary_key=True)
-    title = Column(String)
-    rating = Column(Float)
-    num_ratings = Column(Integer)
-    last_updated = Column(DateTime, default=datetime.utcnow)
-
 # Recommendation Algorithm
 class MovieRecommender:
     def __init__(self, db_session):
@@ -68,26 +72,34 @@ class MovieRecommender:
         recency_score = 0.2  # Placeholder for recency calculation
         return genre_score + popularity_score + recency_score
 
-# Usage
-db_engine = create_engine('postgresql://username:password@localhost/moviedb')
-Session = sessionmaker(bind=db_engine)
-db_session = Session()
+# Flask routes
+@app.route('/recommend', methods=['POST'])
+def recommend_movies():
+    user_preferences = request.json
+    recommendations = recommender.get_recommendations(user_preferences)
+    return jsonify([{'title': movie.title, 'score': score} for movie, score in recommendations])
 
-scraper = IMDbScraper()
-claude_analyzer = ClaudeAnalyzer('your_claude_api_key')
-recommender = MovieRecommender(db_session)
+@app.route('/update_movie/<string:movie_id>', methods=['POST'])
+def update_movie(movie_id):
+    movie_data = scraper.fetch_movie_data(movie_id)
+    if movie_data:
+        movie = Movie(**movie_data)
+        db_session.add(movie)
+        db_session.commit()
+        return jsonify({"message": "Movie updated successfully"}), 200
+    return jsonify({"error": "Failed to fetch movie data"}), 400
 
-# Example: Fetch and store movie data
-movie_data = scraper.fetch_movie_data('tt0111161')  # The Shawshank Redemption
-if movie_data:
-    new_movie = Movie(**movie_data)
-    db_session.add(new_movie)
-    db_session.commit()
+if __name__ == '__main__':
+    # Database setup
+    db_engine = create_engine(os.getenv('DATABASE_URL', 'postgresql://username:password@localhost/moviedb'))
+    Base.metadata.create_all(db_engine)
+    Session = sessionmaker(bind=db_engine)
+    db_session = Session()
 
-# Example: Get recommendations
-user_preferences = {'favorite_genres': ['Drama', 'Crime']}
-recommendations = recommender.get_recommendations(user_preferences)
-for movie, score in recommendations:
-    print(f"{movie.title}: {score}")
+    # Initialize components
+    scraper = IMDbScraper()
+    claude_analyzer = ClaudeAnalyzer(os.getenv('CLAUDE_API_KEY'))
+    recommender = MovieRecommender(db_session)
 
-db_session.close()
+    # Run the Flask app
+    app.run(debug=True)
