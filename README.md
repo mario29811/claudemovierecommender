@@ -2,35 +2,44 @@
 
 ## Overview
 
-This project is a Python-based movie recommendation system that combines data from IMDb with AI-powered analysis to provide personalized movie suggestions. It utilizes web scraping, machine learning techniques, and the Claude AI API to create a robust recommendation engine.
+This project is a full-stack application for a movie recommendation system that combines a Flask-based REST API backend with a React frontend. It utilizes IMDb data scraping, Claude AI for analysis, and a custom recommendation algorithm to provide personalized movie suggestions.
 
 ## Features
 
+- Flask-based REST API backend
+- React frontend for user interaction
 - Real-time data scraping from IMDb
 - Integration with Claude AI for deep movie content analysis
 - Personalized movie recommendations based on user preferences
 - PostgreSQL database for efficient data storage
-- Customizable user preferences and filters
 
 ## Components
 
-1. IMDb Scraper: Fetches current movie data from IMDb
-2. Claude Analyzer: Integrates with Claude AI for movie content analysis
-3. Database Model: Stores movie information and user preferences
-4. Recommendation Algorithm: Generates personalized movie suggestions
+1. Backend:
+   - Flask REST API
+   - IMDb Scraper
+   - Claude Analyzer
+   - SQLAlchemy Database Model
+   - Recommendation Algorithm
+
+2. Frontend:
+   - React-based user interface
 
 ## Prerequisites
 
 - Python 3.8+
+- Node.js and npm
 - PostgreSQL
 - Claude AI API key
 
 ## Installation
 
+### Backend
+
 1. Clone the repository:
    ```
    git clone https://github.com/yourusername/movie-recommendation-system.git
-   cd movie-recommendation-system
+   cd movie-recommendation-system/backend
    ```
 
 2. Install required packages:
@@ -38,28 +47,52 @@ This project is a Python-based movie recommendation system that combines data fr
    pip install -r requirements.txt
    ```
 
-3. Set up the PostgreSQL database and update the connection string in `movie_recommendation_system.py`.
-
-4. Set your Claude AI API key as an environment variable:
+3. Set up environment variables:
    ```
+   export DATABASE_URL='postgresql://username:password@localhost/moviedb'
    export CLAUDE_API_KEY='your_api_key_here'
+   ```
+
+### Frontend
+
+1. Navigate to the frontend directory:
+   ```
+   cd ../frontend
+   ```
+
+2. Install dependencies:
+   ```
+   npm install
    ```
 
 ## Usage
 
-Run the main script:
+1. Start the backend server:
+   ```
+   cd backend
+   python app.py
+   ```
 
-```
-python movie_recommendation_system.py
-```
+2. In a new terminal, start the frontend development server:
+   ```
+   cd frontend
+   npm start
+   ```
+
+3. Open your browser and navigate to `http://localhost:3000`
+
+## API Endpoints
+
+- `POST /recommend`: Get movie recommendations
+- `POST /movie/<imdb_movie_id>`: Update movie data
+- `GET /movie/<imdb_movie_id>`: Get movie details
 
 ## Configuration
 
-Adjust the following parameters in `movie_recommendation_system.py`:
+Adjust the following environment variables:
 
-- `DB_CONNECTION_STRING`: Your PostgreSQL database connection string
-- `CLAUDE_API_URL`: The endpoint for Claude AI API (if different from default)
-- `NUM_RECOMMENDATIONS`: Number of movie recommendations to generate
+- `DATABASE_URL`: Your PostgreSQL database connection string
+- `CLAUDE_API_KEY`: Your Claude AI API key
 
 ## Contributing
 
@@ -75,10 +108,11 @@ This project is for educational purposes only. Ensure you comply with IMDb's ter
 
 ## Future Enhancements
 
-- Implement a web-based user interface
+- Implement user authentication
 - Add support for TV shows and series
 - Integrate with additional movie databases
-- Implement collaborative filtering for improved recommendations
+- Implement collaborative filtering
+- Enhance the frontend with more interactive features
 
 ## Contact
 
